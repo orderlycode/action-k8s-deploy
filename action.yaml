@@ -29,6 +29,18 @@ runs:
         echo "NAMESPACE=${{ inputs.namespace }}" >> $GITHUB_ENV
         echo "IMAGE_PULL_SECRETS=${{ inputs.imagePullSecrets }}" >> $GITHUB_ENV
         echo "KUBECONFIG=${{ inputs.kubeConfig }} | base64 -d" >> $GITHUB_ENV
+        echo "${{ github.action_path }}" >> $GITHUB_PATH
     - name: "Deploy to kubernetes"
       shell: bash
-      run: start.sh
+      run: |
+        if kubectl get deployment ${APP_NAME} -n ${NAMESPACE} &> /dev/null
+        then
+          echo "Update image of ${APP_NAME} deployment"
+          kubectl set image deployment/${APP_NAME} ${APP_NAME}=${IMAGE} --namespace=${NAMESPACE}
+          echo "Waiting for rollout to finish"
+          kubectl rollout status deployment/${APP_NAME} --namespace=${NAMESPACE} --timeout=30s
+        else
+          echo "Initial deployment: ${APP_NAME}"
+          envsubst < app.yaml | kubectl apply -f -
+          kubectl wait deployment ${APP_NAME} --for condition=Ready -n ${NAMESPACE} --timeout=60s
+        fi
