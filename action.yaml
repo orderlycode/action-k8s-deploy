@@ -1,0 +1,47 @@
+name: "Deploy to Kubernetes"
+description: "Create or update kubernetes deployment using docker image"
+inputs:
+  kubeConfig:
+    description: "kubernetes config encoded with base64"
+    required: true
+  name:
+    description: "kubernetes deployment name"
+    required: true
+  image:
+    description: "docker image to deploy"
+    required: true
+  namespace:
+    description: "kubernetes namespace"
+    required: false
+    default: "default"
+  imagePullSecrets:
+    description: "kubernetes image pull secrets"
+    required: false
+    default: "hub"
+runs:
+  using: "composite"
+  steps:
+    - name: "Setup"
+      shell: bash
+      run: |
+        echo "APP_NAME=${{ inputs.name }}" >> $GITHUB_ENV
+        echo "IMAGE=${{ inputs.image }}" >> $GITHUB_ENV
+        echo "NAMESPACE=${{ inputs.namespace }}" >> $GITHUB_ENV
+        echo "IMAGE_PULL_SECRETS=${{ inputs.imagePullSecrets }}" >> $GITHUB_ENV
+    - name: "Deploy to kubernetes"
+      shell: bash
+      run: |
+        echo ${{ inputs.kubeConfig }} | base64 -d > $(pwd)/k8s.yaml
+        export KUBECONFIG=$(pwd)/k8s.yaml
+
+        if kubectl get deployment ${APP_NAME} -n ${NAMESPACE} &> /dev/null
+        then
+          echo "Update image of ${APP_NAME} deployment"
+          kubectl set image deployment/${APP_NAME} ${APP_NAME}=${IMAGE} --namespace=${NAMESPACE}
+          echo "Waiting for rollout to finish"
+          kubectl rollout status deployment/${APP_NAME} --namespace=${NAMESPACE} --timeout=30s
+        else
+          echo "Initial deployment: ${APP_NAME}"
+          envsubst < app.yaml | kubectl apply -f -
+          kubectl wait deployment ${APP_NAME} --for condition=Ready -n ${NAMESPACE} --timeout=60s
+        fi
