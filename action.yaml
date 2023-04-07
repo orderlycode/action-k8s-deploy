@@ -28,12 +28,13 @@ runs:
         echo "IMAGE=${{ inputs.image }}" >> $GITHUB_ENV
         echo "NAMESPACE=${{ inputs.namespace }}" >> $GITHUB_ENV
         echo "IMAGE_PULL_SECRETS=${{ inputs.imagePullSecrets }}" >> $GITHUB_ENV
-        echo "${{ github.action_path }}" >> $GITHUB_PATH
     - name: "Deploy to kubernetes"
       shell: bash
       run: |
         echo ${{ inputs.kubeConfig }} | base64 -d > $(pwd)/k8s.yaml
         export KUBECONFIG=$(pwd)/k8s.yaml
+        
+        cd ${{ github.action_path }}
         
         if kubectl get deployment ${APP_NAME} -n ${NAMESPACE} &> /dev/null
         then
