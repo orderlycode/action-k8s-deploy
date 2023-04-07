@@ -45,5 +45,5 @@ runs:
         else
           echo "Initial deployment: ${APP_NAME}"
           envsubst < app.yaml | kubectl apply -f -
-          kubectl wait deployment ${APP_NAME} --for condition=Ready -n ${NAMESPACE} --timeout=60s
+          kubectl wait deployment ${APP_NAME} --for condition=Available=True -n ${NAMESPACE} --timeout=60s
         fi
